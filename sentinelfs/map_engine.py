@@ -18,14 +18,15 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             "risk_level": True,
             "window": True,
             "commodity_view": True,
-        },
-        color_discrete_map={
-            "Low": "#2ecc71",
-            "Medium": "#f1c40f",
-            "High": "#e74c3c",
-        },
-        projection="natural earth",
-    )
+    },
+    custom_data=["iso3", "country_name"],  # ✅ مهم للكليك
+    color_discrete_map={
+        "Low": "#2ecc71",
+        "Medium": "#f1c40f",
+        "High": "#e74c3c",
+    },
+    projection="natural earth",
+)
 
     fig.update_traces(marker_line_width=0.6, marker_line_color="rgba(255,255,255,0.35)")
     fig.update_geos(showcoastlines=False, showframe=False)
