@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+from streamlit_plotly_events import plotly_events
 import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
@@ -23,42 +24,15 @@ geojson = load_geojson()
 left_col, right_col = st.columns([2.3, 1.2])
 with left_col:
     fig = build_choropleth(country_risk, geojson, window_days, commodity)
-    fig.update_layout(clickmode="event+select")
-
-    try:
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            key="map",
-            on_select="rerun",
-            selection_mode=("points",),
-        )
-    except TypeError:
-        st.plotly_chart(fig, use_container_width=True, key="map", on_select="rerun")
-
-    sel = st.session_state.get("map", {}).get("selection", {}).get("points", [])
-
-    with st.expander("Debug: map selection payload", expanded=False):
-        st.write(sel if sel else "No selection captured yet.")
-
-    if sel:
-        point = sel[0]
+    selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
+    if selected:
+        point = selected[0]
         iso3 = point.get("location")
-        if not iso3 and point.get("customdata"):
-            customdata = point.get("customdata")
-            if isinstance(customdata, list) and len(customdata) > 0:
-                iso3 = customdata[0]
-
         if iso3:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
             if not row.empty:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
-
-                if hasattr(st, "switch_page"):
-                    st.switch_page("pages/2_Country_Focus.py")
-                else:
-                    st.info("Country selected. Use the button below to navigate to Country Focus.")
 
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
@@ -83,9 +57,9 @@ with right_col:
         st.write(f"Risk score: **{record['risk_score']:.1f}** ({record['risk_level']})")
 
     if st.button("Go to Country Focus"):
-        if hasattr(st, "switch_page"):
+        try:
             st.switch_page("pages/2_Country_Focus.py")
-        else:
+        except Exception:
             st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
 
 if advanced_mode:
