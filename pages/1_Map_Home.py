@@ -26,7 +26,7 @@ with left_col:
     fig = build_choropleth(country_risk, geojson, window_days, commodity)
     selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
     with st.expander("Debug click payload", expanded=False):
-    st.write(selected)
+        st.write(selected)
     if selected:
         point = selected[0]
         iso3 = point.get("location")
