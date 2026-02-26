@@ -4,7 +4,7 @@ from streamlit_plotly_events import plotly_events
 import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
-from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals
+from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals, load_geojson
 from sentinelfs.map_engine import build_choropleth
 from sentinelfs.risk_engine import compute_risk_score
 from sentinelfs.ui import format_risk_metrics
@@ -19,30 +19,20 @@ advanced_mode = st.toggle("Advanced mode", value=False)
 raw = compute_risk_score(load_demo_signals())
 country_risk = aggregate_country_risk(window_days, commodity)
 country_risk = compute_risk_score(country_risk)
+geojson = load_geojson()
 
 left_col, right_col = st.columns([2.3, 1.2])
 with left_col:
-    fig = build_choropleth(country_risk, geojson=None, window_days=window_days, commodity=commodity)
-    clicked = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
-
-    with st.expander("Debug: map click payload", expanded=False):
-        st.write(clicked if clicked else "No click captured yet.")
-
-    if clicked:
-        point = clicked[0]
+    fig = build_choropleth(country_risk, geojson, window_days, commodity)
+    selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
+    if selected:
+        point = selected[0]
         iso3 = point.get("location")
-        if not iso3 and point.get("customdata"):
-            customdata = point.get("customdata")
-            if isinstance(customdata, list) and len(customdata) > 0:
-                iso3 = customdata[0]
-
         if iso3:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
             if not row.empty:
-                country_name = row.iloc[0]["country_name"]
                 st.session_state["selected_iso3"] = iso3
-                st.session_state["selected_country_name"] = country_name
-                st.success(f"Selected {country_name} ({iso3}). Use the button on the right to open Country Focus.")
+                st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
@@ -51,7 +41,7 @@ with right_col:
 
     st.subheader("Top 10 Countries")
     st.dataframe(
-        country_risk.sort_values("risk_score", ascending=False)[["country_name", "iso3", "risk_score", "risk_level"]].head(10),
+        country_risk[["country_name", "iso3", "risk_score", "risk_level"]].head(10),
         hide_index=True,
         use_container_width=True,
     )
@@ -67,9 +57,9 @@ with right_col:
         st.write(f"Risk score: **{record['risk_score']:.1f}** ({record['risk_level']})")
 
     if st.button("Go to Country Focus"):
-        if hasattr(st, "switch_page"):
+        try:
             st.switch_page("pages/2_Country_Focus.py")
-        else:
+        except Exception:
             st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
 
 if advanced_mode:
