@@ -1,7 +1,6 @@
 import pandas as pd
 import plotly.express as px
 
-
 def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: int, commodity: str):
     plot_df = country_risk_df.copy()
     plot_df["window"] = f"Last {window_days} days"
@@ -9,10 +8,9 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
 
     fig = px.choropleth(
         plot_df,
-        geojson=geojson,
         locations="iso3",
-        featureidkey="properties.ISO_A3",
-        color="risk_score",
+        locationmode="ISO-3",
+        color="risk_level",
         hover_name="country_name",
         hover_data={
             "iso3": True,
@@ -21,10 +19,15 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             "window": True,
             "commodity_view": True,
         },
-        color_continuous_scale="RdYlGn_r",
-        range_color=(0, 100),
-        labels={"risk_score": "Risk Score"},
+        color_discrete_map={
+            "Low": "#2ecc71",
+            "Medium": "#f1c40f",
+            "High": "#e74c3c",
+        },
+        projection="natural earth",
     )
-    fig.update_geos(showcoastlines=True, showframe=False, projection_type="natural earth")
-    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=560)
+
+    fig.update_traces(marker_line_width=0.6, marker_line_color="rgba(255,255,255,0.35)")
+    fig.update_geos(showcoastlines=False, showframe=False)
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=560, legend_title_text="")
     return fig
