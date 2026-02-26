@@ -4,7 +4,7 @@ from streamlit_plotly_events import plotly_events
 import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
-from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals, load_geojson
+from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals
 from sentinelfs.map_engine import build_choropleth
 from sentinelfs.risk_engine import compute_risk_score
 from sentinelfs.ui import format_risk_metrics
@@ -16,52 +16,65 @@ window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
+# Data
 raw = compute_risk_score(load_demo_signals())
 country_risk = aggregate_country_risk(window_days, commodity)
 country_risk = compute_risk_score(country_risk)
-geojson = load_geojson()
 
 left_col, right_col = st.columns([2.3, 1.2])
+
+# ----------------------------
+# Left: Map
+# ----------------------------
 with left_col:
-    fig = build_choropleth(country_risk, geojson, window_days, commodity)
-selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
+    # NOTE: geojson param kept for compatibility; build_choropleth may ignore it.
+    fig = build_choropleth(country_risk, geojson=None, window_days=window_days, commodity=commodity)
 
-with st.expander("Debug click payload", expanded=False):
-    st.write(selected)
+    selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
 
-if selected:
-    p = selected[0]
+    with st.expander("Debug click payload", expanded=False):
+        st.write(selected)
 
-    iso3 = p.get("location")  # إذا رجعها
-    country_name = None
+    if selected:
+        p = selected[0]
 
-    # ✅ fallback: customdata from plotly_events
-    cd = p.get("customdata")
-    if not iso3 and cd and isinstance(cd, list) and len(cd) >= 1:
-        iso3 = cd[0]
-    if cd and isinstance(cd, list) and len(cd) >= 2:
-        country_name = cd[1]
+        iso3 = p.get("location")
+        country_name = None
 
-    if iso3:
-        if not country_name:
-            row = country_risk[country_risk["iso3"] == iso3].head(1)
-            if not row.empty:
-                country_name = row.iloc[0]["country_name"]
+        # Fallback: Plotly events may return ISO3 in customdata when configured in build_choropleth
+        cd = p.get("customdata")
+        if not iso3 and cd and isinstance(cd, (list, tuple)) and len(cd) >= 1:
+            iso3 = cd[0]
+        if cd and isinstance(cd, (list, tuple)) and len(cd) >= 2:
+            country_name = cd[1]
 
-        st.session_state["selected_iso3"] = iso3
-        st.session_state["selected_country_name"] = country_name or iso3
+        if iso3:
+            if not country_name:
+                row = country_risk[country_risk["iso3"] == iso3].head(1)
+                if not row.empty:
+                    country_name = row.iloc[0]["country_name"]
 
-        # ✅ نقل فوري
-        st.switch_page("pages/2_Country_Focus.py")
+            st.session_state["selected_iso3"] = iso3
+            st.session_state["selected_country_name"] = country_name or iso3
 
+            # Navigate immediately
+            try:
+                st.switch_page("pages/2_Country_Focus.py")
+            except Exception:
+                st.info("Country selected. Use the button on the right to open Country Focus.")
+
+# ----------------------------
+# Right: Summary
+# ----------------------------
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
     st.metric("% High Risk Countries", f"{high_pct:.1f}%")
     st.metric("Average Risk Score", f"{avg_score:.1f}")
 
     st.subheader("Top 10 Countries")
+    top10 = country_risk.sort_values("risk_score", ascending=False).head(10)
     st.dataframe(
-        country_risk[["country_name", "iso3", "risk_score", "risk_level"]].head(10),
+        top10[["country_name", "iso3", "risk_score", "risk_level"]],
         hide_index=True,
         use_container_width=True,
     )
@@ -82,6 +95,9 @@ with right_col:
         except Exception:
             st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
 
+# ----------------------------
+# Advanced mode
+# ----------------------------
 if advanced_mode:
     st.divider()
     st.subheader("Advanced analytics")
