@@ -24,17 +24,35 @@ geojson = load_geojson()
 left_col, right_col = st.columns([2.3, 1.2])
 with left_col:
     fig = build_choropleth(country_risk, geojson, window_days, commodity)
-    selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
-    with st.expander("Debug click payload", expanded=False):
-        st.write(selected)
-    if selected:
-        point = selected[0]
-        iso3 = point.get("location")
-        if iso3:
+selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
+
+with st.expander("Debug click payload", expanded=False):
+    st.write(selected)
+
+if selected:
+    p = selected[0]
+
+    iso3 = p.get("location")  # إذا رجعها
+    country_name = None
+
+    # ✅ fallback: customdata from plotly_events
+    cd = p.get("customdata")
+    if not iso3 and cd and isinstance(cd, list) and len(cd) >= 1:
+        iso3 = cd[0]
+    if cd and isinstance(cd, list) and len(cd) >= 2:
+        country_name = cd[1]
+
+    if iso3:
+        if not country_name:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
             if not row.empty:
-                st.session_state["selected_iso3"] = iso3
-                st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
+                country_name = row.iloc[0]["country_name"]
+
+        st.session_state["selected_iso3"] = iso3
+        st.session_state["selected_country_name"] = country_name or iso3
+
+        # ✅ نقل فوري
+        st.switch_page("pages/2_Country_Focus.py")
 
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
