@@ -25,28 +25,14 @@ left_col, right_col = st.columns([2.3, 1.2])
 with left_col:
     fig = build_choropleth(country_risk, geojson, window_days, commodity)
     selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
-
-    with st.expander("Debug: map click payload", expanded=False):
-        st.write(selected if selected else "No click captured yet.")
-
     if selected:
         point = selected[0]
         iso3 = point.get("location")
-        if not iso3 and point.get("customdata"):
-            customdata = point.get("customdata")
-            if isinstance(customdata, list) and len(customdata) > 0:
-                iso3 = customdata[0]
-
         if iso3:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
             if not row.empty:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
-
-                if hasattr(st, "switch_page"):
-                    st.switch_page("pages/2_Country_Focus.py")
-                else:
-                    st.info("Country selected. Use the button below to navigate to Country Focus.")
 
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
@@ -71,9 +57,9 @@ with right_col:
         st.write(f"Risk score: **{record['risk_score']:.1f}** ({record['risk_level']})")
 
     if st.button("Go to Country Focus"):
-        if hasattr(st, "switch_page"):
+        try:
             st.switch_page("pages/2_Country_Focus.py")
-        else:
+        except Exception:
             st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
 
 if advanced_mode:
