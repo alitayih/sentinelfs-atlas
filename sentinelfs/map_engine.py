@@ -3,8 +3,21 @@ import pandas as pd
 import plotly.express as px
 
 
+def _risk_level_from_score(score: float) -> str:
+    if score <= 33:
+        return "Low"
+    if score <= 66:
+        return "Medium"
+    return "High"
+
+
 def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: int, commodity: str):
     plot_df = country_risk_df.copy()
+
+    # ✅ ضمان وجود risk_level بعد الـ aggregation
+    if "risk_level" not in plot_df.columns:
+        plot_df["risk_level"] = plot_df["risk_score"].apply(_risk_level_from_score)
+
     plot_df["window"] = f"Last {window_days} days"
     plot_df["commodity_view"] = commodity
 
@@ -28,7 +41,15 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
         projection="natural earth",
     )
 
-    # خريطة أنظف + تثبيت الهايلايت + إظهار borders بشكل واضح
+    # ✅ Borders ثابتة (بدون selected line لأنها بتكسر choropleth في Plotly)
+    fig.update_traces(
+        marker_line_width=0.7,
+        marker_line_color="rgba(255,255,255,0.35)",
+        # highlight عبر opacity فقط (مدعوم)
+        selected=dict(marker=dict(opacity=1.0)),
+        unselected=dict(marker=dict(opacity=0.75)),
+    )
+
     fig.update_geos(
         fitbounds="locations",
         showcountries=True,
@@ -48,14 +69,6 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             title=dict(text="Risk", font=dict(color="white")),
             tickfont=dict(color="white"),
         ),
-    )
-
-    # هايلايت واضح للدولة المختارة
-    fig.update_traces(
-        marker_line_width=0.6,
-        marker_line_color="rgba(255,255,255,0.35)",
-        selected=dict(marker_line_width=2.2, marker_line_color="rgba(57,255,182,0.95)"),
-        unselected=dict(marker_opacity=0.78),
     )
 
     return fig
