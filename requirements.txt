@@ -1,7 +1,7 @@
 streamlit
 pandas
 numpy
-plotly
-streamlit-plotly-events
+plotly==5.24.1
+streamlit-plotly-events==0.0.6
 sqlalchemy
 psycopg2-binary
