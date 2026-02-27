@@ -7,12 +7,11 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
     plot_df["window"] = f"Last {window_days} days"
     plot_df["commodity_view"] = commodity
 
-    # Use Plotly built-in ISO-3 boundaries (stable + professional)
     fig = px.choropleth(
         plot_df,
         locations="iso3",
         locationmode="ISO-3",
-        color="risk_score",  # continuous for better nuance
+        color="risk_score",
         hover_name="country_name",
         hover_data={
             "iso3": True,
@@ -21,13 +20,11 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             "window": True,
             "commodity_view": True,
         },
-        # DARK SCALE (no yellow)
         color_continuous_scale=["#0b0b0b", "#1a1a1a", "#2a2a2a", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"],
         range_color=(0, 100),
         projection="natural earth",
     )
 
-    # Borders & layout
     fig.update_traces(marker_line_width=0.6, marker_line_color="rgba(255,255,255,0.35)")
     fig.update_geos(showcoastlines=False, showframe=False, bgcolor="rgba(0,0,0,0)")
     fig.update_layout(
@@ -36,9 +33,8 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         coloraxis_colorbar=dict(
-            title="Risk",
+            title=dict(text="Risk", font=dict(color="white")),
             tickfont=dict(color="white"),
-            titlefont=dict(color="white"),
         ),
     )
     return fig
