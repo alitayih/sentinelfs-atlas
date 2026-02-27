@@ -8,16 +8,10 @@ def inject_css():
     st.markdown(
         """
         <style>
-          /* Page padding */
           .block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
-
-          /* Sidebar spacing */
           section[data-testid="stSidebar"] .block-container { padding-top: 1.2rem; }
-
-          /* Reduce top whitespace */
           header[data-testid="stHeader"] { height: 0.5rem; }
 
-          /* Cards look */
           .sfs-card {
             background: rgba(17, 24, 39, 0.85);
             border: 1px solid rgba(255,255,255,0.06);
@@ -39,6 +33,7 @@ def ensure_ui_state():
         "window_days": 30,
         "commodity": "All",
         "advanced_mode": False,
+        "auto_open_on_click": True,   # ✅ الجديد
         "selected_iso3": None,
         "selected_country_name": None,
     }
@@ -49,32 +44,50 @@ def ensure_ui_state():
 def sidebar_filters(WINDOW_OPTIONS, COMMODITIES):
     """
     Global sidebar filters for all pages.
-    Uses session_state so navigation keeps selections.
     """
     with st.sidebar:
         st.markdown("### Controls")
+
+        # safer index selection
+        wd = st.session_state.get("window_days", WINDOW_OPTIONS[0])
+        idx = WINDOW_OPTIONS.index(wd) if wd in WINDOW_OPTIONS else 0
+
         window_days = st.radio(
             "Date window",
             WINDOW_OPTIONS,
             horizontal=True,
-            index=0 if st.session_state["window_days"] == WINDOW_OPTIONS[0] else 1,
+            index=idx,
             key="window_days",
         )
 
+        commodity_list = ["All", *COMMODITIES]
+        com = st.session_state.get("commodity", "All")
+        cidx = commodity_list.index(com) if com in commodity_list else 0
+
         commodity = st.selectbox(
             "Commodity",
-            ["All", *COMMODITIES],
-            index=(["All", *COMMODITIES].index(st.session_state["commodity"])
-                   if st.session_state["commodity"] in ["All", *COMMODITIES] else 0),
+            commodity_list,
+            index=cidx,
             key="commodity",
         )
 
-        advanced_mode = st.toggle("Advanced mode", value=st.session_state["advanced_mode"], key="advanced_mode")
+        advanced_mode = st.toggle(
+            "Advanced mode",
+            value=st.session_state.get("advanced_mode", False),
+            key="advanced_mode",
+        )
+
+        # ✅ الخيار اللي بدك إياه
+        auto_open_on_click = st.toggle(
+            "Auto-open Country Focus on click",
+            value=st.session_state.get("auto_open_on_click", True),
+            key="auto_open_on_click",
+        )
 
         st.markdown("---")
         st.caption("SentinelFS Atlas • Mock data mode")
 
-    return window_days, commodity, advanced_mode
+    return window_days, commodity, advanced_mode, auto_open_on_click
 
 
 def kpi_card(title: str, value: str, subtitle: str = ""):
