@@ -1,6 +1,5 @@
 # sentinelfs/ui.py
 from __future__ import annotations
-
 import streamlit as st
 
 
@@ -33,7 +32,7 @@ def ensure_ui_state():
         "window_days": 30,
         "commodity": "All",
         "advanced_mode": False,
-        "auto_open_on_click": True,  # ✅ بدك الاثنين
+        "auto_open_on_click": True,   # ✅ بدك الاثنين
         "selected_iso3": None,
         "selected_country_name": None,
     }
@@ -43,8 +42,8 @@ def ensure_ui_state():
 
 def sidebar_filters(WINDOW_OPTIONS, COMMODITIES):
     """
-    ✅ ترجع 4 قيم:
-    (window_days, commodity, advanced_mode, auto_open_on_click)
+    ✅ يرجّع 4 قيم:
+    window_days, commodity, advanced_mode, auto_open
     """
     with st.sidebar:
         st.markdown("### Controls")
