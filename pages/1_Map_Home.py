@@ -1,10 +1,11 @@
+# pages/1_Map_Home.py
 import pandas as pd
 import streamlit as st
 from streamlit_plotly_events import plotly_events
 import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
-from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals, load_geojson
+from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_geojson, load_demo_signals
 from sentinelfs.map_engine import build_choropleth
 from sentinelfs.risk_engine import compute_risk_score
 
@@ -17,15 +18,19 @@ window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
+# ✅ حمّل geojson مرة واحدة فقط (بدون إعادة تحميل كل rerun)
+if "WORLD_GEO" not in st.session_state:
+    st.session_state["WORLD_GEO"] = load_geojson()
+geo = st.session_state["WORLD_GEO"]
+
+# ✅ country aggregation (cached داخل data_store)
 country_risk = aggregate_country_risk(window_days, commodity)
 
 left_col, right_col = st.columns([2.3, 1.2])
 
 with left_col:
-    geo = load_geojson()
     fig = build_choropleth(country_risk, geojson=geo, window_days=window_days, commodity=commodity)
 
-    # ✅ خليها click + select (الـ select يساعد مع بعض المتصفحات)
     selected = plotly_events(
         fig,
         click_event=True,
@@ -34,16 +39,15 @@ with left_col:
         key="map_events",
     )
 
+    # Debug اختياري
     with st.expander("Debug click payload", expanded=False):
         st.write(selected if selected else "No click captured yet.")
 
+    # ✅ لو صار click: خزّن واطلع مباشرة (بدون أي حسابات/داتا إضافية)
     if selected:
         p = selected[0]
-
-        # غالباً choropleth بيرجع location=ISO3
         iso3 = p.get("location")
 
-        # fallback: pointNumber
         if not iso3 and "pointNumber" in p:
             pn = p["pointNumber"]
             try:
@@ -60,11 +64,11 @@ with left_col:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
-                # نقل فوري للتفاصيل
-                try:
-                    st.switch_page("pages/2_Country_Focus.py")
-                except Exception:
-                    st.toast(f"Selected {iso3}. Open Country Focus from sidebar.", icon="📍")
+                # 🔥 أسرع إحساس للمستخدم قبل التحويل
+                st.toast(f"Opening {st.session_state['selected_country_name']}…", icon="📍")
+
+                # ✅ تنقّل فوري
+                st.switch_page("pages/2_Country_Focus.py")
 
 with right_col:
     st.subheader("Quick KPIs")
