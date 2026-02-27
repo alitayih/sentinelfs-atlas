@@ -27,24 +27,28 @@ with left_col:
 
     selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
 
+    # Debug (اختياري)
     with st.expander("Debug click payload", expanded=False):
-        st.write(selected)
+        st.write(selected if selected else "No click captured yet.")
 
     if selected:
         p = selected[0]
+
+        # 1) حاول مباشرة (أحياناً موجود)
         iso3 = p.get("location")
 
-        # Fallback 1: try customdata if exists
-        cd = p.get("customdata")
-        if not iso3 and cd and isinstance(cd, (list, tuple)) and len(cd) >= 1:
-            iso3 = cd[0]
-
-        # Fallback 2 (YOUR CASE): use pointNumber to map back to trace locations
-        if not iso3 and p.get("pointNumber") is not None:
+        # 2) لو مش موجودة، استخدم pointNumber (الأكثر شيوعاً)
+        if not iso3 and "pointNumber" in p:
+            pn = p["pointNumber"]
             try:
-                iso3 = fig.data[0].locations[p["pointNumber"]]
+                # الأفضل: locations
+                iso3 = fig.data[0].locations[pn]
             except Exception:
-                iso3 = None
+                # بديل: customdata
+                try:
+                    iso3 = fig.data[0].customdata[pn][0]
+                except Exception:
+                    iso3 = None
 
         if iso3:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
@@ -52,40 +56,11 @@ with left_col:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
-                # Navigate immediately
+                # ✅ نقل فوري للتفاصيل
                 try:
                     st.switch_page("pages/2_Country_Focus.py")
                 except Exception:
-                    st.info("Country selected. Use the button on the right to open Country Focus.")
-
-with right_col:
-    high_pct, avg_score = format_risk_metrics(country_risk)
-    st.metric("% High Risk Countries", f"{high_pct:.1f}%")
-    st.metric("Average Risk Score", f"{avg_score:.1f}")
-
-    st.subheader("Top 10 Countries")
-    top10 = country_risk.sort_values("risk_score", ascending=False).head(10)
-    st.dataframe(
-        top10[["country_name", "iso3", "risk_score", "risk_level"]],
-        hide_index=True,
-        use_container_width=True,
-    )
-
-    selected_iso3, selected_country_name = ensure_session_defaults()
-    summary = country_risk[country_risk["iso3"] == selected_iso3]
-    if summary.empty:
-        st.info("No country selected yet. Click a country on the map.")
-    else:
-        record = summary.iloc[0]
-        st.subheader("Selected Country")
-        st.write(f"**{record['country_name']} ({record['iso3']})**")
-        st.write(f"Risk score: **{record['risk_score']:.1f}** ({record['risk_level']})")
-
-    if st.button("Go to Country Focus"):
-        try:
-            st.switch_page("pages/2_Country_Focus.py")
-        except Exception:
-            st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
+                    st.toast(f"Selected {iso3}. Use the button to open Country Focus.", icon="📍")
 
 if advanced_mode:
     st.divider()
