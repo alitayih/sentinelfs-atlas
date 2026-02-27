@@ -1,3 +1,5 @@
+# sentinelfs/risk_engine.py
+import numpy as np
 import pandas as pd
 
 WEIGHTS = {
@@ -13,7 +15,7 @@ DRIVER_COLS = list(WEIGHTS.keys())
 
 def compute_risk_score(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    # drivers لازم تكون موجودة
+
     out["risk_score"] = 100 * (
         0.30 * out["conflict_intensity"]
         + 0.20 * out["freight_volatility"]
@@ -28,4 +30,5 @@ def compute_risk_score(df: pd.DataFrame) -> pd.DataFrame:
         ["Low", "Medium", "High"],
         default="Medium",
     )
+
     return out
