@@ -15,12 +15,7 @@ def load_demo_signals() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_demo_signals_cached():
-    # استدعاء دالتك الأصلية
-    return load_demo_signals()
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def load_demo_signals_cached():
+def load_demo_signals_cached() -> pd.DataFrame:
     return load_demo_signals()
 
 
@@ -40,7 +35,7 @@ def load_geojson() -> dict:
 
 @st.cache_data(show_spinner=False)
 def filtered_signals(window_days: int, commodity: str) -> pd.DataFrame:
-    df = load_demo_signals().copy()
+    df = load_demo_signals_cached().copy()
     max_date = df["date"].max()
     start_date = max_date - pd.Timedelta(days=window_days - 1)
     df = df[df["date"] >= start_date]

@@ -82,3 +82,10 @@ def kpi_card(title: str, value: str, subtitle: str = ""):
         """,
         unsafe_allow_html=True,
     )
+
+
+
+def sigmoid(x: float) -> float:
+    """Small helper for UI metrics."""
+    import math
+    return 1.0 / (1.0 + math.exp(-x))

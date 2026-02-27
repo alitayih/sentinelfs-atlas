@@ -1,48 +1,40 @@
+from __future__ import annotations
+
 import streamlit as st
 
-from sentinelfs.config import APP_TITLE
+from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
+from sentinelfs.ui import inject_css, ensure_ui_state, sidebar_filters
 
 st.set_page_config(page_title=f"{APP_TITLE} | Help", page_icon="📘", layout="wide")
+inject_css()
+ensure_ui_state()
+
 st.title("Help & User Manual")
+
+# Keep sidebar consistent (controls visible, but do not affect this page content)
+sidebar_filters(WINDOW_OPTIONS, COMMODITIES)
 
 st.markdown(
     """
-## What this app does
-SentinelFS Atlas is a proof-of-concept country-level food system risk explorer built on synthetic data.
+### What is SentinelFS Atlas?
+A lightweight mock-data early-warning dashboard for food-security and geopolitical risk monitoring.
 
-## Pages
-1. **Map Home**: Country choropleth by ISO3, KPIs, top risk table, and advanced analytics.
-2. **Country Focus**: Deep dive into one country's risk and risk-driver trends plus spike events.
-3. **Scenarios**: Apply scenario templates (Export ban, Port disruption, Conflict escalation, Drought).
-4. **Action Tracking**: Store and track mitigation actions in Neon Postgres.
-5. **Help/User Manual**: This guide.
+### How to use the Map Home
+- Use **Date window** and **Commodity** in the sidebar.
+- Click a country to open **Country Focus** (or disable auto-open to use the button).
 
-## Risk formula
-`risk_score = 100 * (0.30*conflict_intensity + 0.20*freight_volatility + 0.20*export_restriction_sentiment + 0.15*price_shock + 0.15*weather_risk)`
+### Country Focus
+- Explore the risk trend and drivers for a selected country.
+- The explainability panel highlights the strongest drivers.
 
-Scores are clamped to 0..100.
-Risk levels:
-- Low: <=33
-- Medium: <=66
-- High: >66
+### Scenarios
+- Choose a scenario template and simulate shocks.
+- Save scenarios for quick comparison.
 
-## Filters and windows
-- Window supports last 30 or 90 days.
-- Commodity supports All/Wheat/Rice/Corn. All aggregates across commodities.
+### Action Tracking
+- Track operational actions, owners, due dates, and status.
+- Uses Neon/Postgres when configured via `NEON_DATABASE_URL`.
 
-## Scenarios
-Template deltas are applied to target-country drivers with configurable severity and duration (7/14/30 days), then risk is recomputed.
-
-## Actions and Neon Postgres
-Set `NEON_DATABASE_URL` in Streamlit secrets (or environment variable fallback) to enable CRUD action tracking.
-
-## PoC limitations
-- Uses synthetic data and lightweight Natural Earth polygons.
-- Indicators are illustrative and not calibrated for operations.
-
-## Plugging in real data later
-- Replace `data/demo_signals.csv` with trusted feeds.
-- Keep ISO3 alignment for map joins.
-- Extend drivers and scenario templates with domain-specific coefficients.
+> This is a mock-data build. Real data connectors can be added later without changing the UI structure.
 """
 )
