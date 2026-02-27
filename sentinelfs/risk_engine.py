@@ -1,9 +1,6 @@
-# sentinelfs/risk_engine.py
 from __future__ import annotations
-
 import numpy as np
 import pandas as pd
-
 
 WEIGHTS = {
     "conflict_intensity": 0.28,
@@ -13,16 +10,10 @@ WEIGHTS = {
     "weather_risk": 0.20,
 }
 
-
 def compute_risk_score(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Computes weighted risk_score (0-100) and risk_level.
-    Expects the signal columns to exist in df (or will fill missing with 0).
-    """
     out = df.copy()
 
-    # Ensure columns exist
-    for col in WEIGHTS.keys():
+    for col in WEIGHTS:
         if col not in out.columns:
             out[col] = 0.0
 
@@ -37,5 +28,4 @@ def compute_risk_score(df: pd.DataFrame) -> pd.DataFrame:
         ["Low", "Medium", "High"],
         default="Medium",
     )
-
     return out
