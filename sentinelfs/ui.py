@@ -33,7 +33,7 @@ def ensure_ui_state():
         "window_days": 30,
         "commodity": "All",
         "advanced_mode": False,
-        "auto_open_on_click": True,   # ✅ الجديد
+        "auto_open_on_click": True,  # ✅ بدك الاثنين
         "selected_iso3": None,
         "selected_country_name": None,
     }
@@ -43,42 +43,24 @@ def ensure_ui_state():
 
 def sidebar_filters(WINDOW_OPTIONS, COMMODITIES):
     """
-    Global sidebar filters for all pages.
+    ✅ ترجع 4 قيم:
+    (window_days, commodity, advanced_mode, auto_open_on_click)
     """
     with st.sidebar:
         st.markdown("### Controls")
 
-        # safer index selection
         wd = st.session_state.get("window_days", WINDOW_OPTIONS[0])
-        idx = WINDOW_OPTIONS.index(wd) if wd in WINDOW_OPTIONS else 0
-
-        window_days = st.radio(
-            "Date window",
-            WINDOW_OPTIONS,
-            horizontal=True,
-            index=idx,
-            key="window_days",
-        )
+        wd_idx = WINDOW_OPTIONS.index(wd) if wd in WINDOW_OPTIONS else 0
+        window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=wd_idx, key="window_days")
 
         commodity_list = ["All", *COMMODITIES]
         com = st.session_state.get("commodity", "All")
-        cidx = commodity_list.index(com) if com in commodity_list else 0
+        com_idx = commodity_list.index(com) if com in commodity_list else 0
+        commodity = st.selectbox("Commodity", commodity_list, index=com_idx, key="commodity")
 
-        commodity = st.selectbox(
-            "Commodity",
-            commodity_list,
-            index=cidx,
-            key="commodity",
-        )
+        advanced_mode = st.toggle("Advanced mode", value=st.session_state.get("advanced_mode", False), key="advanced_mode")
 
-        advanced_mode = st.toggle(
-            "Advanced mode",
-            value=st.session_state.get("advanced_mode", False),
-            key="advanced_mode",
-        )
-
-        # ✅ الخيار اللي بدك إياه
-        auto_open_on_click = st.toggle(
+        auto_open = st.toggle(
             "Auto-open Country Focus on click",
             value=st.session_state.get("auto_open_on_click", True),
             key="auto_open_on_click",
@@ -87,7 +69,7 @@ def sidebar_filters(WINDOW_OPTIONS, COMMODITIES):
         st.markdown("---")
         st.caption("SentinelFS Atlas • Mock data mode")
 
-    return window_days, commodity, advanced_mode, auto_open_on_click
+    return window_days, commodity, advanced_mode, auto_open
 
 
 def kpi_card(title: str, value: str, subtitle: str = ""):
