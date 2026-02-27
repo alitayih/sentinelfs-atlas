@@ -1,50 +1,50 @@
+# pages/1_Map_Home.py
 import pandas as pd
 import streamlit as st
 from streamlit_plotly_events import plotly_events
 import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
-from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals
+from sentinelfs.data_store import aggregate_country_risk, ensure_session_defaults, load_demo_signals, load_geojson
 from sentinelfs.map_engine import build_choropleth
 from sentinelfs.risk_engine import compute_risk_score
-from sentinelfs.ui import format_risk_metrics
 
 st.set_page_config(page_title=f"{APP_TITLE} | Map Home", page_icon="🗺️", layout="wide")
 st.title("Map Home")
+
+# (اختياري) تأكد أن السيشن فيها قيم افتراضية
+ensure_session_defaults()
 
 window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
-raw = compute_risk_score(load_demo_signals())
+# بيانات نافذة/كوموديتي (مجمعة على مستوى الدولة)
 country_risk = aggregate_country_risk(window_days, commodity)
-country_risk = compute_risk_score(country_risk)
 
 left_col, right_col = st.columns([2.3, 1.2])
 
 with left_col:
-    fig = build_choropleth(country_risk, geojson=None, window_days=window_days, commodity=commodity)
+    geo = load_geojson()
+    fig = build_choropleth(country_risk, geojson=geo, window_days=window_days, commodity=commodity)
 
     selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
 
-    # Debug (اختياري)
     with st.expander("Debug click payload", expanded=False):
         st.write(selected if selected else "No click captured yet.")
 
     if selected:
         p = selected[0]
 
-        # 1) حاول مباشرة (أحياناً موجود)
+        # 1) حاول location
         iso3 = p.get("location")
 
-        # 2) لو مش موجودة، استخدم pointNumber (الأكثر شيوعاً)
+        # 2) لو مش موجودة، استخدم pointNumber (الأكثر شيوعاً مع choropleth)
         if not iso3 and "pointNumber" in p:
             pn = p["pointNumber"]
             try:
-                # الأفضل: locations
                 iso3 = fig.data[0].locations[pn]
             except Exception:
-                # بديل: customdata
                 try:
                     iso3 = fig.data[0].customdata[pn][0]
                 except Exception:
@@ -56,15 +56,31 @@ with left_col:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
-                # ✅ نقل فوري للتفاصيل
+                # نقل فوري للتفاصيل
                 try:
                     st.switch_page("pages/2_Country_Focus.py")
                 except Exception:
-                    st.toast(f"Selected {iso3}. Use the button to open Country Focus.", icon="📍")
+                    st.toast(f"Selected {iso3}. Use the sidebar to open Country Focus.", icon="📍")
+
+with right_col:
+    st.subheader("Quick KPIs")
+    high_pct = (country_risk["risk_level"].eq("High").mean() * 100) if len(country_risk) else 0.0
+    avg_score = country_risk["risk_score"].mean() if len(country_risk) else 0.0
+    st.metric("High-risk countries", f"{high_pct:.1f}%")
+    st.metric("Average risk", f"{avg_score:.1f}")
+
+    st.subheader("Top risk (mean)")
+    st.dataframe(
+        country_risk.sort_values("risk_score", ascending=False).head(15)[["country_name", "iso3", "risk_score", "risk_level"]],
+        hide_index=True,
+        use_container_width=True,
+    )
 
 if advanced_mode:
     st.divider()
     st.subheader("Advanced analytics")
+
+    raw = compute_risk_score(load_demo_signals())
 
     max_date = raw["date"].max()
     last14 = raw[raw["date"] >= max_date - pd.Timedelta(days=13)]
