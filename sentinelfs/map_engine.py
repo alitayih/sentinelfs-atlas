@@ -20,7 +20,10 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             "window": True,
             "commodity_view": True,
         },
-        color_continuous_scale=["#0b0b0b", "#1a1a1a", "#2a2a2a", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"],
+        # DARK SCALE (no yellow)
+        color_continuous_scale=[
+            "#0b0b0b", "#1a1a1a", "#2a2a2a", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"
+        ],
         range_color=(0, 100),
         projection="natural earth",
     )
@@ -32,6 +35,7 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
         height=560,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        # ✅ بدون titlefont نهائيًا
         coloraxis_colorbar=dict(
             title=dict(text="Risk", font=dict(color="white")),
             tickfont=dict(color="white"),
