@@ -20,18 +20,18 @@ ensure_ui_state()
 st.title("SentinelFS Atlas")
 st.caption("Operational early-warning dashboard (Mock mode)")
 
-# ✅ Global filters (sidebar)
+# ✅ sidebar_filters يرجع 4 قيم
 window_days, commodity, advanced_mode, auto_open = sidebar_filters(WINDOW_OPTIONS, COMMODITIES)
 
-# ✅ Aggregated risk per country (fast)
 country_risk = aggregate_country_risk(window_days, commodity)
 if "risk_level" not in country_risk.columns:
     country_risk = compute_risk_score(country_risk)
 
-# ---------- KPI Row ----------
+# ---- KPI row ----
 raw = None
+deltas = None
+
 if advanced_mode:
-    # ✅ cached raw demo signals (so we don't recompute every rerun)
     raw = compute_risk_score(load_demo_signals_cached())
 
 avg_score = float(country_risk["risk_score"].mean()) if len(country_risk) else 0.0
@@ -40,7 +40,6 @@ high_pct = float((country_risk["risk_level"].eq("High").mean() * 100)) if len(co
 riser_txt, faller_txt = "—", "—"
 riser_sub, faller_sub = "Enable Advanced mode", "Enable Advanced mode"
 
-deltas = None
 if raw is not None and len(raw):
     max_date = raw["date"].max()
     last14 = raw[raw["date"] >= max_date - pd.Timedelta(days=13)]
@@ -82,13 +81,12 @@ with k4:
 
 st.markdown("---")
 
-# ---------- Main Layout ----------
 left_col, right_col = st.columns([2.3, 1.2])
 
 with left_col:
     fig = build_choropleth(
         country_risk_df=country_risk,
-        geojson=None,  # ✅ fastest
+        geojson=None,  # ✅ أسرع خيار
         window_days=window_days,
         commodity=commodity,
     )
@@ -101,7 +99,7 @@ with left_col:
         key="map_events",
     )
 
-    # ✅ parse click robustly
+    # Robust click parse
     iso3 = None
     if selected:
         p = selected[0]
@@ -113,14 +111,12 @@ with left_col:
             except Exception:
                 iso3 = None
 
-    # ✅ BOTH MODES:
-    # - Auto-open ON: click -> switch_page immediately
-    # - Auto-open OFF: click -> show selected + button "Open details"
     if iso3:
         st.session_state["selected_iso3"] = iso3
         name = country_risk.loc[country_risk["iso3"] == iso3, "country_name"].head(1)
         st.session_state["selected_country_name"] = name.iloc[0] if len(name) else iso3
 
+        # ✅ الاثنين:
         if auto_open:
             st.toast(f"Opening {st.session_state['selected_country_name']}…", icon="🌍")
             st.switch_page("pages/2_Country_Focus.py")
@@ -131,21 +127,10 @@ with left_col:
                 st.switch_page("pages/2_Country_Focus.py")
                 st.stop()
 
-    # Tabs under map
     t1, t2, t3 = st.tabs(["Drivers", "Risers & Fallers", "Alerts (Mock)"])
 
     with t1:
-        driver_cols = [
-            c
-            for c in [
-                "conflict_intensity",
-                "freight_volatility",
-                "export_restriction_sentiment",
-                "price_shock",
-                "weather_risk",
-            ]
-            if c in country_risk.columns
-        ]
+        driver_cols = [c for c in ["conflict_intensity", "freight_volatility", "export_restriction_sentiment", "price_shock", "weather_risk"] if c in country_risk.columns]
         if not driver_cols:
             st.caption("No driver columns available in this view.")
         else:
@@ -162,22 +147,12 @@ with left_col:
             a, b = st.columns(2)
             with a:
                 st.write("Top Risers")
-                st.dataframe(
-                    deltas.sort_values("delta_14d", ascending=False).head(10)[
-                        ["country_name", "iso3", "risk_score", "delta_14d"]
-                    ],
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                st.dataframe(deltas.sort_values("delta_14d", ascending=False).head(10)[["country_name", "iso3", "risk_score", "delta_14d"]],
+                             hide_index=True, use_container_width=True)
             with b:
                 st.write("Top Fallers")
-                st.dataframe(
-                    deltas.sort_values("delta_14d", ascending=True).head(10)[
-                        ["country_name", "iso3", "risk_score", "delta_14d"]
-                    ],
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                st.dataframe(deltas.sort_values("delta_14d", ascending=True).head(10)[["country_name", "iso3", "risk_score", "delta_14d"]],
+                             hide_index=True, use_container_width=True)
 
     with t3:
         alerts = [
@@ -205,15 +180,7 @@ with left_col:
 with right_col:
     st.subheader("Top risk (mean)")
     st.dataframe(
-        country_risk.sort_values("risk_score", ascending=False).head(15)[
-            ["country_name", "iso3", "risk_score", "risk_level"]
-        ],
+        country_risk.sort_values("risk_score", ascending=False).head(15)[["country_name", "iso3", "risk_score", "risk_level"]],
         hide_index=True,
         use_container_width=True,
-    )
-
-    st.subheader("Notes")
-    st.caption(
-        "Mock-data build focused on UI/UX + operational workflows. "
-        "Real data connectors will be plugged in later."
     )
