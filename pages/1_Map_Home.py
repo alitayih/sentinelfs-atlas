@@ -16,18 +16,13 @@ window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
-# Data
 raw = compute_risk_score(load_demo_signals())
 country_risk = aggregate_country_risk(window_days, commodity)
 country_risk = compute_risk_score(country_risk)
 
 left_col, right_col = st.columns([2.3, 1.2])
 
-# ----------------------------
-# Left: Map
-# ----------------------------
 with left_col:
-    # NOTE: geojson param kept for compatibility; build_choropleth may ignore it.
     fig = build_choropleth(country_risk, geojson=None, window_days=window_days, commodity=commodity)
 
     selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
@@ -37,35 +32,32 @@ with left_col:
 
     if selected:
         p = selected[0]
-
         iso3 = p.get("location")
-        country_name = None
 
-        # Fallback: Plotly events may return ISO3 in customdata when configured in build_choropleth
+        # Fallback 1: try customdata if exists
         cd = p.get("customdata")
         if not iso3 and cd and isinstance(cd, (list, tuple)) and len(cd) >= 1:
             iso3 = cd[0]
-        if cd and isinstance(cd, (list, tuple)) and len(cd) >= 2:
-            country_name = cd[1]
+
+        # Fallback 2 (YOUR CASE): use pointNumber to map back to trace locations
+        if not iso3 and p.get("pointNumber") is not None:
+            try:
+                iso3 = fig.data[0].locations[p["pointNumber"]]
+            except Exception:
+                iso3 = None
 
         if iso3:
-            if not country_name:
-                row = country_risk[country_risk["iso3"] == iso3].head(1)
-                if not row.empty:
-                    country_name = row.iloc[0]["country_name"]
+            row = country_risk[country_risk["iso3"] == iso3].head(1)
+            if not row.empty:
+                st.session_state["selected_iso3"] = iso3
+                st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
-            st.session_state["selected_iso3"] = iso3
-            st.session_state["selected_country_name"] = country_name or iso3
+                # Navigate immediately
+                try:
+                    st.switch_page("pages/2_Country_Focus.py")
+                except Exception:
+                    st.info("Country selected. Use the button on the right to open Country Focus.")
 
-            # Navigate immediately
-            try:
-                st.switch_page("pages/2_Country_Focus.py")
-            except Exception:
-                st.info("Country selected. Use the button on the right to open Country Focus.")
-
-# ----------------------------
-# Right: Summary
-# ----------------------------
 with right_col:
     high_pct, avg_score = format_risk_metrics(country_risk)
     st.metric("% High Risk Countries", f"{high_pct:.1f}%")
@@ -95,12 +87,10 @@ with right_col:
         except Exception:
             st.page_link("pages/2_Country_Focus.py", label="Open Country Focus", icon="📍")
 
-# ----------------------------
-# Advanced mode
-# ----------------------------
 if advanced_mode:
     st.divider()
     st.subheader("Advanced analytics")
+
     max_date = raw["date"].max()
     last14 = raw[raw["date"] >= max_date - pd.Timedelta(days=13)]
     prev14 = raw[(raw["date"] < max_date - pd.Timedelta(days=13)) & (raw["date"] >= max_date - pd.Timedelta(days=27))]
@@ -110,7 +100,11 @@ if advanced_mode:
         prev14 = prev14[prev14["commodity"] == commodity]
 
     last_agg = last14.groupby(["iso3", "country_name"], as_index=False)["risk_score"].mean()
-    prev_agg = prev14.groupby(["iso3", "country_name"], as_index=False)["risk_score"].mean().rename(columns={"risk_score": "prev_risk_score"})
+    prev_agg = (
+        prev14.groupby(["iso3", "country_name"], as_index=False)["risk_score"]
+        .mean()
+        .rename(columns={"risk_score": "prev_risk_score"})
+    )
 
     deltas = last_agg.merge(prev_agg, on=["iso3", "country_name"], how="left")
     deltas["delta_14d"] = deltas["risk_score"] - deltas["prev_risk_score"].fillna(deltas["risk_score"])
