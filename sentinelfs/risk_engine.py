@@ -16,7 +16,6 @@ def compute_risk_score(df: pd.DataFrame) -> pd.DataFrame:
     Adds:
       - risk_score (0..100, rounded 1)
       - risk_level (Low/Medium/High)
-    Assumes driver columns exist in df (or fills missing with 0).
     """
     out = df.copy()
 
