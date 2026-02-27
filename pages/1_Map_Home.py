@@ -12,14 +12,13 @@ from sentinelfs.risk_engine import compute_risk_score
 st.set_page_config(page_title=f"{APP_TITLE} | Map Home", page_icon="🗺️", layout="wide")
 st.title("Map Home")
 
-# (اختياري) تأكد أن السيشن فيها قيم افتراضية
 ensure_session_defaults()
 
 window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
-# بيانات نافذة/كوموديتي (مجمعة على مستوى الدولة)
+# ✅ مجمّع على مستوى الدولة
 country_risk = aggregate_country_risk(window_days, commodity)
 
 left_col, right_col = st.columns([2.3, 1.2])
@@ -36,10 +35,7 @@ with left_col:
     if selected:
         p = selected[0]
 
-        # 1) حاول location
         iso3 = p.get("location")
-
-        # 2) لو مش موجودة، استخدم pointNumber (الأكثر شيوعاً مع choropleth)
         if not iso3 and "pointNumber" in p:
             pn = p["pointNumber"]
             try:
@@ -56,22 +52,26 @@ with left_col:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
-                # نقل فوري للتفاصيل
                 try:
                     st.switch_page("pages/2_Country_Focus.py")
                 except Exception:
-                    st.toast(f"Selected {iso3}. Use the sidebar to open Country Focus.", icon="📍")
+                    st.toast(f"Selected {iso3}. Open Country Focus from sidebar.", icon="📍")
 
 with right_col:
     st.subheader("Quick KPIs")
-    high_pct = (country_risk["risk_level"].eq("High").mean() * 100) if len(country_risk) else 0.0
+    high_pct = (country_risk["risk_score"].gt(66).mean() * 100) if len(country_risk) else 0.0
     avg_score = country_risk["risk_score"].mean() if len(country_risk) else 0.0
     st.metric("High-risk countries", f"{high_pct:.1f}%")
     st.metric("Average risk", f"{avg_score:.1f}")
 
     st.subheader("Top risk (mean)")
+    # risk_level قد لا يكون موجود (بنطلعه من risk_score)
+    tmp = country_risk.copy()
+    if "risk_level" not in tmp.columns:
+        tmp["risk_level"] = tmp["risk_score"].apply(lambda s: "Low" if s <= 33 else ("Medium" if s <= 66 else "High"))
+
     st.dataframe(
-        country_risk.sort_values("risk_score", ascending=False).head(15)[["country_name", "iso3", "risk_score", "risk_level"]],
+        tmp.sort_values("risk_score", ascending=False).head(15)[["country_name", "iso3", "risk_score", "risk_level"]],
         hide_index=True,
         use_container_width=True,
     )
