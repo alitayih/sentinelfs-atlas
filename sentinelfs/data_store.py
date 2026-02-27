@@ -14,6 +14,12 @@ def load_demo_signals() -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_demo_signals_cached():
+    # استدعاء دالتك الأصلية
+    return load_demo_signals()
+
+
 @st.cache_data(show_spinner=False)
 def load_geojson() -> dict:
     with open(WORLD_GEOJSON_PATH, "r", encoding="utf-8") as f:
