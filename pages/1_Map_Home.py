@@ -1,4 +1,3 @@
-# pages/1_Map_Home.py
 import pandas as pd
 import streamlit as st
 from streamlit_plotly_events import plotly_events
@@ -18,7 +17,6 @@ window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
-# ✅ مجمّع على مستوى الدولة
 country_risk = aggregate_country_risk(window_days, commodity)
 
 left_col, right_col = st.columns([2.3, 1.2])
@@ -27,7 +25,14 @@ with left_col:
     geo = load_geojson()
     fig = build_choropleth(country_risk, geojson=geo, window_days=window_days, commodity=commodity)
 
-    selected = plotly_events(fig, click_event=True, hover_event=False, key="map_click")
+    # ✅ خليها click + select (الـ select يساعد مع بعض المتصفحات)
+    selected = plotly_events(
+        fig,
+        click_event=True,
+        select_event=True,
+        hover_event=False,
+        key="map_events",
+    )
 
     with st.expander("Debug click payload", expanded=False):
         st.write(selected if selected else "No click captured yet.")
@@ -35,7 +40,10 @@ with left_col:
     if selected:
         p = selected[0]
 
+        # غالباً choropleth بيرجع location=ISO3
         iso3 = p.get("location")
+
+        # fallback: pointNumber
         if not iso3 and "pointNumber" in p:
             pn = p["pointNumber"]
             try:
@@ -52,6 +60,7 @@ with left_col:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
 
+                # نقل فوري للتفاصيل
                 try:
                     st.switch_page("pages/2_Country_Focus.py")
                 except Exception:
@@ -65,7 +74,6 @@ with right_col:
     st.metric("Average risk", f"{avg_score:.1f}")
 
     st.subheader("Top risk (mean)")
-    # risk_level قد لا يكون موجود (بنطلعه من risk_score)
     tmp = country_risk.copy()
     if "risk_level" not in tmp.columns:
         tmp["risk_level"] = tmp["risk_score"].apply(lambda s: "Low" if s <= 33 else ("Medium" if s <= 66 else "High"))
