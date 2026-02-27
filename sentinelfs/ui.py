@@ -89,3 +89,14 @@ def sigmoid(x: float) -> float:
     """Small helper for UI metrics."""
     import math
     return 1.0 / (1.0 + math.exp(-x))
+
+import math
+
+def sigmoid(x: float) -> float:
+    # stable sigmoid (prevents overflow)
+    if x >= 0:
+        z = math.exp(-x)
+        return 1 / (1 + z)
+    else:
+        z = math.exp(x)
+        return z / (1 + z)
