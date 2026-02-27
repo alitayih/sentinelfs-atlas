@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 
 
-def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: int, commodity: str):
+def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict | None, window_days: int, commodity: str):
     plot_df = country_risk_df.copy()
     plot_df["window"] = f"Last {window_days} days"
     plot_df["commodity_view"] = commodity
@@ -20,22 +20,33 @@ def build_choropleth(country_risk_df: pd.DataFrame, geojson: dict, window_days: 
             "window": True,
             "commodity_view": True,
         },
-        # DARK SCALE (no yellow)
+        custom_data=["iso3", "country_name"],  # ✅ مهم للكليك
+        # ✅ تدرج رمادي واضح (بدون أصفر) ويبان على خلفية داكنة
         color_continuous_scale=[
-            "#0b0b0b", "#1a1a1a", "#2a2a2a", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#6a6a6a"
+            "#1a1a1a",
+            "#2a2a2a",
+            "#3a3a3a",
+            "#4a4a4a",
+            "#6a6a6a",
+            "#9a9a9a",
+            "#d0d0d0",
         ],
         range_color=(0, 100),
         projection="natural earth",
     )
 
-    fig.update_traces(marker_line_width=0.6, marker_line_color="rgba(255,255,255,0.35)")
+    # حدود البلدان واضحة
+    fig.update_traces(marker_line_width=0.7, marker_line_color="rgba(255,255,255,0.45)")
+
+    # خلفية شفافة + بدون frame
     fig.update_geos(showcoastlines=False, showframe=False, bgcolor="rgba(0,0,0,0)")
+
+    # Layout + Colorbar بدون titlefont
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         height=560,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        # ✅ بدون titlefont نهائيًا
         coloraxis_colorbar=dict(
             title=dict(text="Risk", font=dict(color="white")),
             tickfont=dict(color="white"),
