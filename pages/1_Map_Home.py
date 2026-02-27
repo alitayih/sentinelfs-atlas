@@ -2,7 +2,6 @@
 import pandas as pd
 import streamlit as st
 from streamlit_plotly_events import plotly_events
-import plotly.express as px
 
 from sentinelfs.config import APP_TITLE, COMMODITIES, WINDOW_OPTIONS
 from sentinelfs.data_store import (
@@ -23,15 +22,15 @@ window_days = st.radio("Date window", WINDOW_OPTIONS, horizontal=True, index=0)
 commodity = st.selectbox("Commodity", ["All", *COMMODITIES], index=0)
 advanced_mode = st.toggle("Advanced mode", value=False)
 
-# ✅ country aggregation (cached داخل data_store)
+# ✅ aggregated risk table (should already include risk_score)
 country_risk = aggregate_country_risk(window_days, commodity)
 
 left_col, right_col = st.columns([2.3, 1.2])
 
 with left_col:
-    # ✅ Fast map (NO geojson)
     fig = build_choropleth(
         country_risk_df=country_risk,
+        geojson=None,  # ✅ fastest
         window_days=window_days,
         commodity=commodity,
     )
@@ -44,54 +43,48 @@ with left_col:
         key="map_events",
     )
 
+    # Debug (اختياري)
     with st.expander("Debug click payload", expanded=False):
         st.write(selected if selected else "No click captured yet.")
 
-    # ✅ لو صار click: خزّن واطلع مباشرة
     if selected:
         p = selected[0]
         iso3 = p.get("location")
 
+        # fallback لو library رجّعت pointNumber
         if not iso3 and "pointNumber" in p:
             pn = p["pointNumber"]
             try:
                 iso3 = fig.data[0].locations[pn]
             except Exception:
-                try:
-                    iso3 = fig.data[0].customdata[pn][0]
-                except Exception:
-                    iso3 = None
+                iso3 = None
 
         if iso3:
             row = country_risk[country_risk["iso3"] == iso3].head(1)
             if not row.empty:
                 st.session_state["selected_iso3"] = iso3
                 st.session_state["selected_country_name"] = row.iloc[0]["country_name"]
-
                 st.toast(f"Opening {st.session_state['selected_country_name']}…", icon="🌍")
 
                 st.switch_page("pages/2_Country_Focus.py")
-                st.stop()  # 🔥 مهم جداً: لا تكمل حساب KPIs/advanced في نفس rerun
+                st.stop()
 
 with right_col:
     st.subheader("Quick KPIs")
 
-    high_pct = (country_risk["risk_score"].gt(66).mean() * 100) if len(country_risk) else 0.0
+    # Ensure risk_level exists (in case aggregate didn't compute it)
+    if "risk_level" not in country_risk.columns:
+        country_risk = compute_risk_score(country_risk)
+
+    high_pct = (country_risk["risk_level"].eq("High").mean() * 100) if len(country_risk) else 0.0
     avg_score = country_risk["risk_score"].mean() if len(country_risk) else 0.0
 
     st.metric("High-risk countries", f"{high_pct:.1f}%")
     st.metric("Average risk", f"{avg_score:.1f}")
 
     st.subheader("Top risk (mean)")
-    tmp = country_risk.copy()
-
-    if "risk_level" not in tmp.columns:
-        tmp["risk_level"] = tmp["risk_score"].apply(
-            lambda s: "Low" if s <= 33 else ("Medium" if s <= 66 else "High")
-        )
-
     st.dataframe(
-        tmp.sort_values("risk_score", ascending=False).head(15)[
+        country_risk.sort_values("risk_score", ascending=False).head(15)[
             ["country_name", "iso3", "risk_score", "risk_level"]
         ],
         hide_index=True,
@@ -102,6 +95,7 @@ with right_col:
         st.divider()
         st.subheader("Advanced analytics")
 
+        # ✅ only compute raw when needed (perf)
         raw = compute_risk_score(load_demo_signals())
         max_date = raw["date"].max()
 
@@ -123,9 +117,7 @@ with right_col:
         )
 
         deltas = last_agg.merge(prev_agg, on=["iso3", "country_name"], how="left")
-        deltas["delta_14d"] = deltas["risk_score"] - deltas["prev_risk_score"].fillna(
-            deltas["risk_score"]
-        )
+        deltas["delta_14d"] = deltas["risk_score"] - deltas["prev_risk_score"].fillna(deltas["risk_score"])
 
         r1, r2 = st.columns(2)
         with r1:
@@ -142,6 +134,3 @@ with right_col:
                 hide_index=True,
                 use_container_width=True,
             )
-
-        hist = px.histogram(country_risk, x="risk_score", nbins=20, title="Risk Score Distribution")
-        st.plotly_chart(hist, use_container_width=True)
